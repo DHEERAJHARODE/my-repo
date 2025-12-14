@@ -6,7 +6,9 @@ import "./App.css";
 
 function App() {
   useEffect(() => {
-    getFcmToken();
+    // Abhi test ke liye static user id
+    // Login system hone par yahan user.uid pass karna
+    getFcmToken("test-user-123");
   }, []);
 
   return (
