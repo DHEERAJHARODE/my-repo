@@ -34,9 +34,8 @@ const Navbar = () => {
         snap.docs.map((d) => ({ id: d.id, ...d.data() }))
       );
     });
-
-    return () => unsub();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => unsub();
   }, [user?.uid]);
 
   const unread = notifications.filter((n) => !n.read).length;
