@@ -1,7 +1,16 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { db } from "../firebase/firebaseConfig";
-import { collection, query, where, onSnapshot, doc, updateDoc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  doc,
+  updateDoc,
+  getDoc,
+  getDocs,
+} from "firebase/firestore";
 
 const BookingRequests = () => {
   const { user } = useAuth();
@@ -10,7 +19,6 @@ const BookingRequests = () => {
   useEffect(() => {
     if (!user) return;
 
-    // fetch booking requests where ownerId == current owner
     const q = query(
       collection(db, "bookings"),
       where("ownerId", "==", user.uid)
@@ -21,8 +29,6 @@ const BookingRequests = () => {
 
       for (let docSnap of snapshot.docs) {
         const data = docSnap.data();
-
-        // fetch room details
         const roomSnap = await getDoc(doc(db, "rooms", data.roomId));
 
         list.push({
@@ -38,18 +44,44 @@ const BookingRequests = () => {
     return () => unsubscribe();
   }, [user]);
 
-  const handleStatus = async (id, status) => {
-    await updateDoc(doc(db, "bookings", id), {
-      status,
+  const handleAccept = async (booking) => {
+    // 1️⃣ Accept current booking
+    await updateDoc(doc(db, "bookings", booking.id), {
+      status: "accepted",
     });
-    alert(`Booking ${status}!`);
+
+    // 2️⃣ Mark room as booked
+    await updateDoc(doc(db, "rooms", booking.roomId), {
+      status: "booked",
+    });
+
+    // 3️⃣ Reject all other bookings for same room
+    const q = query(
+      collection(db, "bookings"),
+      where("roomId", "==", booking.roomId),
+      where("status", "==", "pending")
+    );
+
+    const snap = await getDocs(q);
+
+    snap.forEach(async (d) => {
+      await updateDoc(doc(db, "bookings", d.id), {
+        status: "rejected",
+      });
+    });
+
+    alert("Booking accepted & room booked!");
+  };
+
+  const handleReject = async (id) => {
+    await updateDoc(doc(db, "bookings", id), {
+      status: "rejected",
+    });
   };
 
   return (
     <div style={{ padding: "20px" }}>
       <h2>Booking Requests</h2>
-
-      {requests.length === 0 && <p>No booking requests yet.</p>}
 
       {requests.map((req) => (
         <div key={req.id} style={styles.card}>
@@ -59,12 +91,11 @@ const BookingRequests = () => {
 
           {req.status === "pending" && (
             <div style={{ display: "flex", gap: "10px" }}>
-              <button onClick={() => handleStatus(req.id, "accepted")}>
+              <button onClick={() => handleAccept(req)}>
                 ✔ Accept
               </button>
-
               <button
-                onClick={() => handleStatus(req.id, "rejected")}
+                onClick={() => handleReject(req.id)}
                 style={{ background: "red", color: "#fff" }}
               >
                 ✖ Reject
